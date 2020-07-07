@@ -9,7 +9,7 @@ var SeeThrough = SeeThrough || {};
 
 //=============================================================================
  /*:
- * @plugindesc v1.05 Make it, so whenever a character step on a certain
+ * @plugindesc v1.05.2 Make it, so whenever a character step on a certain
  * Region ID's, you will be able to look through the element and see him
  * @author Yedine
  *
@@ -178,7 +178,7 @@ SeeThrough.removeTransparent = function(target) {
 //=========================================================
 SeeThrough.checkRegion = function(player, repeat = false) {
     if (activePlugin) {
-        var regionId = $gameMap.regionId(player.x, player.y);
+        
         var arrayValue;
         if (player._eventId == undefined && player._characterName) {
             if ((player._followers && !this.effectOnPlayer)
@@ -196,6 +196,7 @@ SeeThrough.checkRegion = function(player, repeat = false) {
                 player = $gameMap.event(player._eventId);
             }
         } else { return; }
+        var regionId = $gameMap.regionId(player.x, player.y);
         if (regions.includes(regionId) && (!this.transparentCharacters.includes(arrayValue) || repeat == true)) {
             this.transparentCharacters.push(arrayValue);
             this.changePriority(player, opacity, 2, repeat, false);
@@ -243,7 +244,6 @@ SeeThrough.clearAll = function() {
 
 SeeThrough.Game_CharacterBase_isNormalPriority = Game_CharacterBase.prototype.isNormalPriority;
 Game_CharacterBase.prototype.isNormalPriority = function() {
-    SeeThrough.Game_CharacterBase_isNormalPriority.call(this);
     if (activePlugin == true) {
         return this._priorityType === 1;
     } else { return this._priorityType === 1; }
@@ -251,14 +251,12 @@ Game_CharacterBase.prototype.isNormalPriority = function() {
 
 SeeThrough.Game_CharacterBase_isMoving = Game_CharacterBase.prototype.isMoving;
 Game_CharacterBase.prototype.isMoving = function() {
-    SeeThrough.Game_CharacterBase_isMoving.call(this);
-    if (activePlugin == true) { SeeThrough.checkRegion(this); }
+    if (activePlugin == true) { SeeThrough.checkRegion(this, false); }
     return this._realX !== this._x || this._realY !== this._y;
 };
 
 SeeThrough.Game_CharacterBase_isCollidedWithCharacters = Game_CharacterBase.prototype.isCollidedWithCharacters;
 Game_CharacterBase.prototype.isCollidedWithCharacters = function(x, y) {
-    SeeThrough.Game_CharacterBase_isCollidedWithCharacters.call(this, x, y);
     var events = $gameMap.eventsXyNt(x, y);
     return events.some(function(event) {
         return event.isNormalPriority() || event.behindSee;
@@ -272,7 +270,6 @@ Game_CharacterBase.prototype.isCollidedWithCharacters = function(x, y) {
 
 SeeThrough.Game_Follower_update = Game_Follower.prototype.update;
 Game_Follower.prototype.update = function() {
-    SeeThrough.Game_Follower_update.call(this);
     Game_Character.prototype.update.call(this);
     this.setMoveSpeed($gamePlayer.realMoveSpeed());
     this.setBlendMode($gamePlayer.blendMode());
@@ -292,7 +289,7 @@ Game_Follower.prototype.update = function() {
 
 SeeThrough.Game_Player_startMapEvent = Game_Player.prototype.startMapEvent;
 Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
-    SeeThrough.Game_Player_startMapEvent.call(this, x, y, triggers, normal);
+    /* SeeThrough.Game_Player_startMapEvent.call(this, x, y, triggers, normal); */
     if (!$gameMap.isEventRunning()) {
         $gameMap.eventsXy(x, y).forEach(function(event) {
             if (event.isTriggerIn(triggers) && (event.isNormalPriority() === normal || event.behindSee)) {
@@ -309,7 +306,8 @@ Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
 
 SeeThrough.Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
-    SeeThrough.Game_Map_setup.call(this, mapId);
+    SeeThrough.transparentCharacters = [];
+    /* SeeThrough.Game_Map_setup.call(this, mapId); */
     if (!$dataMap) {
         throw new Error('The map data is not available');
     }
@@ -324,6 +322,7 @@ Game_Map.prototype.setup = function(mapId) {
     this.setupBattleback();
     this._needsRefresh = false;
     SeeThrough.clearAll();
+    SeeThrough.transparentCharacters = [];
 };
 
 
