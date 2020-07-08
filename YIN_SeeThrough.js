@@ -9,7 +9,7 @@ var SeeThrough = SeeThrough || {};
 
 //=============================================================================
  /*:
- * @plugindesc v1.05.2 Make it, so whenever a character step on a certain
+ * @plugindesc v1.05.3 Make it, so whenever a character step on a certain
  * Region ID's, you will be able to look through the element and see him
  * @author Yedine
  *
@@ -141,10 +141,6 @@ SeeThrough.changePriority = function(player, opacity, priority, repeat = false) 
     if (player._newOpacity == undefined && repeat == false) {
         player._newOpacity = opacity;
     }
-    if ($dataMap.events[player._eventId] != undefined) {
-        var event = $dataMap.events[player._eventId].note
-        if (event.match(/<NoSeeThrough>/i)) { return; }
-    }
     switch (priority) {
         case 2:
             player.behindSee = true;
@@ -194,6 +190,10 @@ SeeThrough.checkRegion = function(player, repeat = false) {
             if ($gameMap.event(player._eventId)) {
                 arrayValue = $gameMap.event(player._eventId)._eventId;
                 player = $gameMap.event(player._eventId);
+                if ($dataMap.events[player._eventId] != undefined) {
+                    var event = $dataMap.events[player._eventId].note
+                    if (event.match(/<NoSeeThrough>/i)) { return; }
+                }
             }
         } else { return; }
         var regionId = $gameMap.regionId(player.x, player.y);
@@ -214,20 +214,18 @@ SeeThrough.checkRegion = function(player, repeat = false) {
 SeeThrough.clearAll = function() {
     this.notUseOnFollowers = [];
     this.notUseOnEvents = [];
-    this.transparentCharacters.forEach(element => {
-        $gamePlayer._followers._data.forEach(el => {
-            el._newOpacity = opacity;
-            el._priorityType = 1;
-            el._previousOpacity ? el._opacity = el._previousOpacity : el._opacity = 255;
-        });
-        for (let i = 0; i < $dataMap.events.length; i++) {
-            if ($dataMap.events[i] && !this.notUseOnEvents.includes(i)) {
-                $gameMap.event(i)._newOpacity = opacity;
-                $gameMap.event(i)._previousOpacity ? $gameMap.event(i)._opacity = $gameMap.event(i)._previousOpacity : $gameMap.event(i)._opacity = 255;
-                $gameMap.event(i)._priorityType = 1;
-            }
-        }
+    $gamePlayer._followers._data.forEach(el => {
+        el._newOpacity = opacity;
+        el._priorityType = 1;
+        el._previousOpacity ? el._opacity = el._previousOpacity : el._opacity = 255;
     });
+    for (let i = 0; i < $dataMap.events.length; i++) {
+        if ($dataMap.events[i] && !this.notUseOnEvents.includes(i)) {
+            $gameMap.event(i)._newOpacity = opacity;
+            $gameMap.event(i)._previousOpacity ? $gameMap.event(i)._opacity = $gameMap.event(i)._previousOpacity : $gameMap.event(i)._opacity = 255;
+            $gameMap.event(i)._priorityType = 1;
+        }
+    }
     $gamePlayer._newOpacity = opacity;
     $gamePlayer._priorityType = 1;
     $gamePlayer._previousOpacity ? $gamePlayer._opacity = $gamePlayer._previousOpacity : $gamePlayer._opacity = 255;
@@ -306,7 +304,6 @@ Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
 
 SeeThrough.Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
-    SeeThrough.transparentCharacters = [];
     /* SeeThrough.Game_Map_setup.call(this, mapId); */
     if (!$dataMap) {
         throw new Error('The map data is not available');
@@ -322,7 +319,6 @@ Game_Map.prototype.setup = function(mapId) {
     this.setupBattleback();
     this._needsRefresh = false;
     SeeThrough.clearAll();
-    SeeThrough.transparentCharacters = [];
 };
 
 
