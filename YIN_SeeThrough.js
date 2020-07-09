@@ -9,7 +9,7 @@ var SeeThrough = SeeThrough || {};
 
 //=============================================================================
  /*:
- * @plugindesc v1.05.3 Make it, so whenever a character step on a certain
+ * @plugindesc v1.05.5 Make it, so whenever a character step on a certain
  * Region ID's, you will be able to look through the element and see him
  * @author Yedine
  *
