@@ -72,20 +72,20 @@ var SeeThrough = SeeThrough || {};
  * Instructions - Plugin command
  * ============================================================================
  * 
- *      SeeThrough ON/OFF
+ *      SeeThrough TRUE/FALSE
  *          turn the plugin ON or OFF
  * 
  *      SeeThrough Clear
  *          keeps the availability of the plugin, but clear all its effects
  *          (transparent characters won't be transparent anymore)
  * 
- *      SeeThrough Player ON/OFF
+ *      SeeThrough Player TRUE/FALSE
  *          turns the plugin ON or OFF for the player
  * 
- *      SeeThrough Event ID ON/OFF
+ *      SeeThrough Event ID TRUE/FALSE
  *          turns the plugin ON or OFF for an event with a particular ID
  * 
- *      SeeThrough Follower ID ON/OFF
+ *      SeeThrough Follower ID TRUE/FALSE
  *          turns the plugin ON or OFF for the follower with the specified ID
  * 
  * Note for the commands below: You can use "DEFAULT" to restore the default
@@ -128,7 +128,7 @@ for (let i = 0; i < regions.length; i++) {
     regions[i] = Number(regions[i]);
 }
 var opacity = Number(SeeThrough.Parameters['Opacity']);
-var activePlugin = Boolean(SeeThrough.Parameters['Enable']);
+var activePlugin = JSON.parse(SeeThrough.Parameters['Enable']);
 
 //=============================================================================
 // SeeThrough methods
@@ -141,11 +141,14 @@ SeeThrough.changePriority = function(player, opacity, priority, repeat = false) 
     if (player._newOpacity == undefined && repeat == false) {
         player._newOpacity = opacity;
     }
+    if ($dataMap.events[player._eventId] != undefined) {
+        var event = $dataMap.events[player._eventId].note
+        if (event.match(/<NoSeeThrough>/i)) { return; }
+    }
     switch (priority) {
         case 2:
             player.behindSee = true;
-            if (repeat == false)
-                !repeat ? player._previousOpacity = player._opacity : "";
+            !repeat ? player._previousOpacity = player._opacity : "";
             player._newOpacity ? player._opacity = player._newOpacity : player._opacity = opacity;
             break;
         case 1:
@@ -173,37 +176,31 @@ SeeThrough.removeTransparent = function(target) {
 // * Check the region to make the object transparent or not
 //=========================================================
 SeeThrough.checkRegion = function(player, repeat = false) {
-    if (activePlugin) {
-        
-        var arrayValue;
-        if (player._eventId == undefined && player._characterName) {
-            if ((player._followers && !this.effectOnPlayer)
-            || (!player._followers && this.notUseOnFollowers.includes(parseInt(player._memberIndex) - 1)))
-            {
-                return this.changePriority(player, player._previousOpacity, 1);
-            }
-            arrayValue = player._characterName + player._characterIndex;
-        } else if (player._eventId != undefined) {
-            if (this.notUseOnEvents.includes(player._eventId)) {
-                return this.changePriority(player, player._previousOpacity, 1);
-            }
-            if ($gameMap.event(player._eventId)) {
-                arrayValue = $gameMap.event(player._eventId)._eventId;
-                player = $gameMap.event(player._eventId);
-                if ($dataMap.events[player._eventId] != undefined) {
-                    var event = $dataMap.events[player._eventId].note
-                    if (event.match(/<NoSeeThrough>/i)) { return; }
-                }
-            }
-        } else { return; }
-        var regionId = $gameMap.regionId(player.x, player.y);
-        if (regions.includes(regionId) && (!this.transparentCharacters.includes(arrayValue) || repeat == true)) {
-            this.transparentCharacters.push(arrayValue);
-            this.changePriority(player, opacity, 2, repeat, false);
-        } else if (!regions.includes(regionId) && this.transparentCharacters.includes(arrayValue)) {
-            this.removeTransparent(arrayValue);
-            this.changePriority(player, player._previousOpacity, 1);
+    if (!activePlugin) { return; }
+    var arrayValue;
+    if (player._eventId == undefined && player._characterName) {
+        if ((player._followers && !this.effectOnPlayer)
+        || (!player._followers && this.notUseOnFollowers.includes(parseInt(player._memberIndex) - 1)))
+        {
+            return this.changePriority(player, player._previousOpacity, 1);
         }
+        arrayValue = player._characterName + player._characterIndex;
+    } else if (player._eventId != undefined) {
+        if (this.notUseOnEvents.includes(player._eventId)) {
+            return this.changePriority(player, player._previousOpacity, 1);
+        }
+        if ($gameMap.event(player._eventId)) {
+            arrayValue = $gameMap.event(player._eventId)._eventId;
+            player = $gameMap.event(player._eventId);
+        }
+    } else { return; }
+    var regionId = $gameMap.regionId(player.x, player.y);
+    if (regions.includes(regionId) && (!this.transparentCharacters.includes(arrayValue) || repeat == true)) {
+        this.transparentCharacters.push(arrayValue);
+        this.changePriority(player, opacity, 2, repeat, false);
+    } else if (!regions.includes(regionId) && this.transparentCharacters.includes(arrayValue)) {
+        this.removeTransparent(arrayValue);
+        this.changePriority(player, player._previousOpacity, 1);
     }
 };
 
@@ -214,18 +211,20 @@ SeeThrough.checkRegion = function(player, repeat = false) {
 SeeThrough.clearAll = function() {
     this.notUseOnFollowers = [];
     this.notUseOnEvents = [];
-    $gamePlayer._followers._data.forEach(el => {
-        el._newOpacity = opacity;
-        el._priorityType = 1;
-        el._previousOpacity ? el._opacity = el._previousOpacity : el._opacity = 255;
-    });
-    for (let i = 0; i < $dataMap.events.length; i++) {
-        if ($dataMap.events[i] && !this.notUseOnEvents.includes(i)) {
-            $gameMap.event(i)._newOpacity = opacity;
-            $gameMap.event(i)._previousOpacity ? $gameMap.event(i)._opacity = $gameMap.event(i)._previousOpacity : $gameMap.event(i)._opacity = 255;
-            $gameMap.event(i)._priorityType = 1;
+    this.transparentCharacters.forEach(element => {
+        $gamePlayer._followers._data.forEach(el => {
+            el._newOpacity = opacity;
+            el._priorityType = 1;
+            el._previousOpacity ? el._opacity = el._previousOpacity : el._opacity = 255;
+        });
+        for (let i = 0; i < $dataMap.events.length; i++) {
+            if ($dataMap.events[i] && !this.notUseOnEvents.includes(i)) {
+                $gameMap.event(i)._newOpacity = opacity;
+                $gameMap.event(i)._previousOpacity ? $gameMap.event(i)._opacity = $gameMap.event(i)._previousOpacity : $gameMap.event(i)._opacity = 255;
+                $gameMap.event(i)._priorityType = 1;
+            }
         }
-    }
+    });
     $gamePlayer._newOpacity = opacity;
     $gamePlayer._priorityType = 1;
     $gamePlayer._previousOpacity ? $gamePlayer._opacity = $gamePlayer._previousOpacity : $gamePlayer._opacity = 255;
@@ -304,20 +303,7 @@ Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
 
 SeeThrough.Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
-    /* SeeThrough.Game_Map_setup.call(this, mapId); */
-    if (!$dataMap) {
-        throw new Error('The map data is not available');
-    }
-    this._mapId = mapId;
-    this._tilesetId = $dataMap.tilesetId;
-    this._displayX = 0;
-    this._displayY = 0;
-    this.refereshVehicles();
-    this.setupEvents();
-    this.setupScroll();
-    this.setupParallax();
-    this.setupBattleback();
-    this._needsRefresh = false;
+    SeeThrough.Game_Map_setup.call(this, mapId);
     SeeThrough.clearAll();
 };
 
@@ -330,55 +316,47 @@ SeeThrough.Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCom
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     SeeThrough.Game_Interpreter_pluginCommand.call(this, command, args);
     if (command === 'SeeThrough') {
-        var followers = $gamePlayer._followers._data;
-	    switch (args[0]) {
-		    case 'ON':
-                activePlugin = true;
-                followers.forEach(el => {
-                    SeeThrough.checkRegion(el);
-                });
-                for (let i = 0; i < $dataMap.events.length; i++) {
-                    if ($gameMap.event(i))
-                        SeeThrough.checkRegion($gameMap.event(i));
-                }
-                SeeThrough.checkRegion($gamePlayer);
-			    break;
-			case 'OFF':
-                activePlugin = false;
-                SeeThrough.clearAll();
+        var followers   = $gamePlayer._followers._data;
+        var argsZero;
+        var argsOne;
+        var argsTwo;
+        args[0] ? argsZero  = args[0].toLowerCase() : '';
+        args[1] ? argsOne   = args[1].toLowerCase() : '';
+        args[2] ? argsTwo   = args[2].toLowerCase() : '';
+	    switch (argsZero) {
+            case 'true': case 'false': case 'clear':
+                argsZero != 'clear' ? activePlugin = JSON.parse(argsZero) : '';
+                if (argsZero == 'true') {
+                    followers.forEach(el => {
+                        SeeThrough.checkRegion(el);
+                    });
+                    for (let i = 0; i < $dataMap.events.length; i++) {
+                        if ($gameMap.event(i))
+                            SeeThrough.checkRegion($gameMap.event(i));
+                    }
+                    SeeThrough.checkRegion($gamePlayer);
+                } else { SeeThrough.clearAll(); }
                 break;
-            case 'Clear':
-                SeeThrough.clearAll();
-                break;
-            case 'Player':
-                switch (args[1]) {
-                    case 'ON':
-                        SeeThrough.effectOnPlayer = true;
-                        break;
-                    case 'OFF':
-                        SeeThrough.effectOnPlayer = false;
-                        SeeThrough.removeTransparent($gamePlayer._characterName + $gamePlayer._characterIndex);
-                        break;
-                    case 'Opacity':
-                        if (args[2] == 'DEFAULT') {
-                            $gamePlayer._newOpacity = Number(SeeThrough.Parameters['Opacity']);
-                        } else if (Number(args[2])) {
-                            $gamePlayer._newOpacity = Number(args[2]);
-                            SeeThrough.checkRegion($gamePlayer, true);
-                        }
-                        break;
-                    default:
-                        break;
+            case 'player':
+                if (argsOne == 'true' || argsOne == 'false') {
+                    SeeThrough.effectOnPlayer = JSON.parse(argsOne);
+                    argsOne == 'false' ? SeeThrough.removeTransparent($gamePlayer._characterName + $gamePlayer._characterIndex) : '';
+                } else if (argsOne == 'opacity') {
+                    args[2] == 'DEFAULT' ? $gamePlayer._newOpacity = Number(SeeThrough.Parameters['Opacity']) : '';
+                    if (Number(args[2])) {
+                        $gamePlayer._newOpacity = Number(args[2]);
+                        SeeThrough.checkRegion($gamePlayer, true);
+                    }
                 }
                 break;
-            case 'Event':
+            case 'event':
                 let idEvent;
-                args[1] == 'ALL' ? idEvent = 'all' : idEvent = parseInt(args[1]);
+                argsOne == 'all' ? idEvent = argsOne : idEvent = parseInt(args[1]);
                 if (idEvent != 'all' && !$gameMap.event(idEvent)) {
                     return ;
                 }
-                switch (args[2]) {
-                    case 'ON':
+                switch (argsTwo) {
+                    case 'true':
                         if (idEvent != 'all') {
                             for (var i = SeeThrough.notUseOnEvents.length - 1; i >= 0; i--) {
                                 if (SeeThrough.notUseOnEvents[i] === idEvent) {
@@ -386,7 +364,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                                 }
                             }
                             SeeThrough.checkRegion($gameMap.event(idEvent), true);
-                        } else if (idEvent == 'all') {    
+                        } else {    
                             SeeThrough.notUseOnEvents = [];
                             for (let j = 0; j < $dataMap.events.length; j++) {
                                 if ($gameMap.event(j)) {
@@ -395,7 +373,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                             }
                         }
                         break;
-                    case 'OFF':
+                    case 'false':
                         if (idEvent != 'all' && $dataMap.events[idEvent]) {
                             SeeThrough.notUseOnEvents.push(idEvent);
                             SeeThrough.removeTransparent($dataMap.events[idEvent].name);
@@ -408,7 +386,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                             }
                         }
                         break;
-                    case 'Opacity':
+                    case 'opacity':
                         if (args[3] == 'DEFAULT') {
                             $gameMap.event(idEvent)._newOpacity = Number(SeeThrough.Parameters['Opacity']);
                         } else if (Number(args[3])) {
@@ -420,13 +398,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                         break;
                 }
                 break;
-            case 'Follower':
-                let idFollower = parseInt(args[1]);
-                if (!followers[idFollower]) {
-                    return ;
-                }
-                switch (args[2]) {
-                    case 'ON':
+            case 'follower':
+                let idFollower = parseInt(argsOne);
+                if (!followers[idFollower]) { return ; }
+                switch (argsTwo) {
+                    case 'true':
                         for (var i = SeeThrough.notUseOnFollowers.length - 1; i >= 0; i--) {
                             if (SeeThrough.notUseOnFollowers[i] === idFollower) {
                                 SeeThrough.notUseOnFollowers.splice(i, 1);
@@ -434,11 +410,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                             }
                         }
                         break;
-                    case 'OFF':
+                    case 'false':
                         SeeThrough.notUseOnFollowers.push(idFollower);
                         SeeThrough.removeTransparent(followers[idFollower]._characterName + followers[idFollower]._characterIndex);
                         break;
-                    case 'Opacity':
+                    case 'opacity':
                         if (args[3] == 'DEFAULT') {
                             followers[idFollower]._newOpacity = Number(SeeThrough.Parameters['Opacity']);
                         } else if (Number(args[3])) {
@@ -451,12 +427,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 }
                 break;
             case 'Opacity':
-                args[1] == 'DEFAULT' ? opacity = Number(SeeThrough.Parameters['Opacity']) : opacity = Number(args[1]);
+                argsOne == 'default' ? opacity = Number(SeeThrough.Parameters['Opacity']) : opacity = Number(argsOne);
                 break;
             default:
                 break;
 	    }
 	}
 };
-
 })();
