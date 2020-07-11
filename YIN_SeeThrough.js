@@ -303,8 +303,8 @@ Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
 
 SeeThrough.Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
-    SeeThrough.Game_Map_setup.call(this, mapId);
-    SeeThrough.clearAll();
+	SeeThrough.clearAll();
+	SeeThrough.Game_Map_setup.call(this, mapId);
 };
 
 
